@@ -11,6 +11,7 @@ PictureMatch is a private Windows desktop app that finds the original photo behi
 - Search multiple folders and all their subfolders
 - Adjustable minimum-match threshold
 - Displays only the five highest-scoring matches
+- Shows the current best matches immediately while the remaining folders are still being scanned
 - Open a matched image or reveal it in File Explorer
 - Remembers selected folders and match threshold
 - Runs locally—your photo library is not uploaded
