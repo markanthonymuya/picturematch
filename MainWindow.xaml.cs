@@ -294,7 +294,13 @@ public partial class MainWindow : Window
                 SearchProgress.Value = n;
                 StatusText.Text = $"Compared {n:N0} of {files.Count:N0} images";
             });
-            var matches = await Task.Run(() => FindMatches(queryCopy, files, threshold, progress, token), token);
+            var liveMatches = new Progress<List<MatchResult>>(matches =>
+            {
+                ResultsList.ItemsSource = matches;
+                ResultSummary.Text = $"Searching… showing the current top {matches.Count}.";
+            });
+            var matches = await Task.Run(() => FindMatches(
+                queryCopy, files, threshold, progress, liveMatches, token), token);
             ResultsList.ItemsSource = matches;
             ResultSummary.Text = matches.Count == 0
                 ? $"No images reached {threshold:P0}. Try lowering the minimum match."
@@ -341,7 +347,7 @@ public partial class MainWindow : Window
     }
 
     private static List<MatchResult> FindMatches(Bitmap query, List<string> files, double threshold,
-        IProgress<int> progress, CancellationToken token)
+        IProgress<int> progress, IProgress<List<MatchResult>> liveMatches, CancellationToken token)
     {
         var queryFeatures = ImageFeatures.Extract(query);
         var results = new List<(string Path, double Score)>();
@@ -353,7 +359,14 @@ public partial class MainWindow : Window
             {
                 using var candidate = new Bitmap(file);
                 var score = queryFeatures.Similarity(ImageFeatures.Extract(candidate));
-                if (score >= threshold) results.Add((file, score));
+                if (score >= threshold)
+                {
+                    results.Add((file, score));
+                    var currentTop = results.OrderByDescending(r => r.Score).Take(5).ToList();
+                    // Only refresh when this result has entered the visible top five.
+                    if (currentTop.Any(r => string.Equals(r.Path, file, StringComparison.OrdinalIgnoreCase)))
+                        liveMatches.Report(currentTop.Select(r => new MatchResult(r.Path, r.Score)).ToList());
+                }
             }
             catch (ArgumentException) { }
             catch (ExternalException) { }
